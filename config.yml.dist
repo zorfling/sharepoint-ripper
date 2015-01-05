@@ -1,0 +1,9 @@
+username: sharepointuser
+password: sharepointpassword
+sharepoint_url: https://sharepoint.example.com
+wiki_base_url: /wiki/
+wiki_index: Home.aspx
+scrape_recursively: True
+content_div_id: ctl00_PlaceHolderMain_WikiField
+confluence_space_key: ABC
+

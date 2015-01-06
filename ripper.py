@@ -10,17 +10,11 @@ import os
 from ntlm import HTTPNtlmAuthHandler
 from bs4 import BeautifulSoup
 
-def parse_page(config, url, output):
-    global handled
+def parse_page(url, output):
+    global handled, user, password, scrape_recursively, content_div_id, \
+           sharepoint_url, wiki_base_url, wiki_index, confluence_space_key, \
+           empties, has_images
 
-    user = config['username']
-    password = config['password']
-    scrape_recursively = config['scrape_recursively']
-    content_div_id = config['content_div_id']
-    sharepoint_url = config['sharepoint_url']
-    wiki_base_url = config['wiki_base_url']
-    wiki_index = config['wiki_index']
-    confluence_space_key = config['confluence_space_key']
 
     passman = mechanize.HTTPPasswordMgrWithDefaultRealm()
     passman.add_password(None, url, user, password)
@@ -38,11 +32,11 @@ def parse_page(config, url, output):
     handled.append(url)
 
     soup = BeautifulSoup(response.read(), "html5lib")
-    innerDiv = soup.find_all("div", id=content_div_id)
+    innerDiv = soup.find("div", id=content_div_id)
 
-    if len(innerDiv) > 0:
+    if innerDiv != None:
 # iterate over all relative links and update links
-        links = innerDiv[0].find_all("a", href=re.compile("^\/"))
+        links = innerDiv.find_all("a", href=re.compile("^\/"))
         for link in links:
 # scrape link
             if scrape_recursively and wiki_base_url in link['href']:
@@ -50,7 +44,7 @@ def parse_page(config, url, output):
                 fullLink = sharepoint_url + link['href']
                 if fullLink not in handled:
                     print fullLink
-                    parse_page(config, fullLink, newoutput + ".md")
+                    parse_page(fullLink, newoutput + ".md")
 
 # fix links to point to Confluence-esque links
 # remove Sharepoint url
@@ -64,8 +58,22 @@ def parse_page(config, url, output):
             else:
                 link['href'] = sharepoint_url + link['href'];
 
+# update relative image paths to point back to sharepoint
+        images = innerDiv.find_all("img", src=re.compile("^\/"))
+        if len(images) > 0:
+            has_images.append(url)
+
+            # it's not necessary for this to be within the if, but might as well
+            for image in images:
+                image['src'] = sharepoint_url + image['src']
+
+# remove sharepoint layouts_data div content if exists (false,false,1 etc)
+        layoutsData = innerDiv.find("span", id="layoutsData")
+        if layoutsData != None:
+            layoutsData.string = ""
+
 # convert to markdown and write
-        content = str(innerDiv[0]).decode('utf-8').replace(u"\u200b", "")
+        content = str(innerDiv).decode('utf-8').replace(u"\u200b", "")
         h = html2text.HTML2Text()
         h.body_width = 0
         markdown = h.handle(content)
@@ -79,16 +87,40 @@ def parse_page(config, url, output):
             print 'Failed'
         else:
             print 'Empty'
+            empties.append(url)
     return
 
 
 config = yaml.load(file("config.yml"))
 url = config['sharepoint_url'] + config['wiki_base_url'] + config['wiki_index']
+# globals
+user = config['username']
+password = config['password']
+scrape_recursively = config['scrape_recursively']
+content_div_id = config['content_div_id']
+sharepoint_url = config['sharepoint_url']
+wiki_base_url = config['wiki_base_url']
+wiki_index = config['wiki_index']
+confluence_space_key = config['confluence_space_key']
+handled = []
+empties = []
+has_images = []
 
 # parse the index page
 d = os.path.dirname('output/')
 if not os.path.exists(d):
     os.makedirs(d)
 
-handled = []
-parse_page(config, url, 'index.md')
+# kick it off
+parse_page(url, 'index.md')
+print "Empty pages"
+print empties
+with codecs.open('output/empties.txt', 'w', 'utf-8') as empties_file:
+    for item in empties:
+          print>>empties_file, item
+
+print "Pages with images pointing back to SharePoint"
+print has_images
+with codecs.open('output/has_images.txt', 'w', 'utf-8') as images_file:
+    for item in has_images:
+          print>>images_file, item

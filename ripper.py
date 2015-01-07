@@ -13,7 +13,7 @@ from bs4 import BeautifulSoup
 def parse_page(url, output):
     global handled, user, password, scrape_recursively, content_div_id, \
            sharepoint_url, wiki_base_url, wiki_index, confluence_space_key, \
-           empties, has_images
+           empties, has_images, direct_confluence_entry, add_legacy_link
 
 
     passman = mechanize.HTTPPasswordMgrWithDefaultRealm()
@@ -39,18 +39,27 @@ def parse_page(url, output):
         links = innerDiv.find_all("a", href=re.compile("^\/"))
         for link in links:
 # scrape link
-            if scrape_recursively and wiki_base_url in link['href']:
+            if wiki_base_url in link['href']:
                 newoutput = link['href'].replace(wiki_base_url, "").replace("%20", "+").replace(".aspx", "")
                 fullLink = sharepoint_url + link['href']
-                if fullLink not in handled:
+                if scrape_recursively and fullLink not in handled:
                     print fullLink
                     parse_page(fullLink, newoutput + ".md")
 
 # fix links to point to Confluence-esque links
-# remove Sharepoint url
-                    link['href'] = link['href'].replace(wiki_base_url, ("/display/" + confluence_space_key + "/"));
+# remove aspx
+                link['href'] = link['href'].replace(".aspx", "");
+# if copying directly into Confluence markdown entry, it needs to be different to using the SOAP converter
+                if direct_confluence_entry:
+# replace Sharepoint url
+                    link['href'] = link['href'].replace(wiki_base_url, "/display/" + confluence_space_key + "/");
 # pluses rather than %20s
                     link['href'] = link['href'].replace("%20", "+");
+                else:
+# remove Sharepoint url
+                    link['href'] = link['href'].replace(wiki_base_url, "");
+# spaces rather than %20s
+                    link['href'] = link['href'].replace("%20", " ");
 # remove aspx
                     link['href'] = link['href'].replace(".aspx", "");
 
@@ -78,6 +87,9 @@ def parse_page(url, output):
         h.body_width = 0
         markdown = h.handle(content)
 
+        if add_legacy_link:
+            markdown += "\n\n---\n\nThis page has been automatically translated from SharePoint.\n\nSomething not look right? Try the [legacy SharePoint link](" + url  + ")"
+
         file = codecs.open("output/" + output, 'w', 'utf-8');
         file.write(markdown);
         file.close()
@@ -102,6 +114,8 @@ sharepoint_url = config['sharepoint_url']
 wiki_base_url = config['wiki_base_url']
 wiki_index = config['wiki_index']
 confluence_space_key = config['confluence_space_key']
+direct_confluence_entry = config['direct_confluence_entry']
+add_legacy_link = config['add_legacy_link']
 handled = []
 empties = []
 has_images = []
@@ -115,12 +129,12 @@ if not os.path.exists(d):
 parse_page(url, 'index.md')
 print "Empty pages"
 print empties
-with codecs.open('output/empties.txt', 'w', 'utf-8') as empties_file:
+with codecs.open('output/aaEmpty+Pages.md', 'w', 'utf-8') as empties_file:
     for item in empties:
           print>>empties_file, item
 
 print "Pages with images pointing back to SharePoint"
 print has_images
-with codecs.open('output/has_images.txt', 'w', 'utf-8') as images_file:
+with codecs.open('output/aaPages+with+Images.md', 'w', 'utf-8') as images_file:
     for item in has_images:
           print>>images_file, item

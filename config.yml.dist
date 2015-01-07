@@ -6,4 +6,5 @@ wiki_index: Home.aspx
 scrape_recursively: True
 content_div_id: ctl00_PlaceHolderMain_WikiField
 confluence_space_key: ABC
-
+direct_confluence_entry: False
+add_legacy_link: True

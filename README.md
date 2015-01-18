@@ -5,6 +5,8 @@ Screen scrape a SharePoint wiki to Markdown
 
 This is largely intended for importing to Confluence with the [markdown-to-confluence-uploader](https://github.com/zorfling/markdown-to-confluence-uploader) or direct entry
 
+This script requires a manual patch to Mechanize described [here](http://chriscolborne.com/sharepoint-scraping-with-python-mechanize-and-beautiful-soup/)
+
 Copy `config.yml.dist` to `config.yml` and enter your details
 
 |Option|Meaning|
